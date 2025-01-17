@@ -1,6 +1,10 @@
 #pragma once
 #include "Agency.hpp"
 #include "includes.hpp"
+#include <map>
+#include <vector>
+#include <string>
+#include <utility>
 
 class RegionIterator {
 private:

@@ -33,6 +33,7 @@ AgencyTable::AgencyTable(size_t init_capacity): size(0), capacity(init_capacity)
 }
 
 AgencyTable::~AgencyTable() {
+	std::lock_guard<std::mutex> lock(table_mutex);
     for(size_t i = 0; i < capacity; i++) {
         if(table[i].name != nullptr) {
             delete[] table[i].name;
@@ -109,6 +110,7 @@ bool AgencyTable::remove(const char* name) {
 
 
 TableEntry* AgencyTable::getEntry(size_t index) {
+	std::lock_guard<std::mutex> lock(table_mutex);
 	if (index < capacity) {
 		return &table[index];
 	}
@@ -117,4 +119,51 @@ TableEntry* AgencyTable::getEntry(size_t index) {
 
 size_t AgencyTable::getCapacity() const {
 	return capacity;
+}
+
+
+std::unordered_map<std::string, int> AgencyTable::countAgenciesByRegion() const {
+    std::unordered_map<std::string, int> regionCount;
+    std::vector<std::thread> threads;
+
+    // Разделяем таблицу на части для многопоточной обработки
+    size_t chunkSize = capacity / std::thread::hardware_concurrency();
+    size_t start = 0;
+
+    for (size_t i = 0; i < std::thread::hardware_concurrency(); ++i) {
+        size_t end = (i == std::thread::hardware_concurrency() - 1) ? capacity : start + chunkSize;
+
+        threads.emplace_back([this, &regionCount, start, end]() {
+            std::unordered_map<std::string, int> localCount;
+            for (size_t j = start; j < end; ++j) {
+                if (table[j].occupied && table[j].name != nullptr) {
+                    std::string location = table[j].agency->get_location();
+                    localCount[location]++;
+                }
+            }
+
+            std::lock_guard<std::mutex> lock(region_count_mutex);
+            for (const auto& pair : localCount) {
+                regionCount[pair.first] += pair.second;
+            }
+        });
+
+        start = end;
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    return regionCount;
+}
+
+std::vector<Agency*> AgencyTable::getAllAgencies() const {
+    std::vector<Agency*> agencies;
+    for (size_t i = 0; i < capacity; ++i) {
+        if (table[i].occupied && table[i].name != nullptr) {
+            agencies.push_back(table[i].agency);
+        }
+    }
+    return agencies;
 }

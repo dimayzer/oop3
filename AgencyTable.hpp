@@ -3,16 +3,24 @@
 #include "PublishingMedia.hpp"
 #include "RadioStation.hpp"
 #include "TVCompany.hpp"
+#include "RegionIterator.hpp"
+#include <mutex> // Подключение для использования std::mutex
+#include <thread>
+#include <vector>
+#include <unordered_map>
 
-class AgencyTable {
-private:
-    struct TableEntry {
+struct TableEntry {
         char* name;
         Agency* agency;
         bool occupied;
         
         TableEntry(): name(nullptr), agency(nullptr), occupied(false) {}
     };
+
+class AgencyTable {
+
+private:
+    
     
     TableEntry* table;
     size_t size;
@@ -21,6 +29,8 @@ private:
 
     unsigned int hash_func(const char* key);
     void resize();
+    mutable std::mutex table_mutex; // Добавляем мьютекс для синхронизации
+	mutable std::mutex region_count_mutex; // Мьютекс для синхронизации подсчета регионов
 
 public:
     AgencyTable(size_t init_capacity = 10);
@@ -43,4 +53,8 @@ public:
         return search(name);
     }
 
+	TableEntry* getEntry(size_t index); // Получить запись по индексу
+	size_t getCapacity() const;         // Получить емкость таблицы
+	std::unordered_map<std::string, int> countAgenciesByRegion() const;
+	std::vector<Agency*> getAllAgencies() const;
 };

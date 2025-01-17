@@ -17,8 +17,10 @@ private:
     void display_agencies_by_region() const;
     void display_all_agencies() const;
     std::vector<Agency*> get_all_agencies() const;
+    mutable std::mutex output_mutex; // Мьютекс для синхронизации вывода
 
 public:
     Menu(AgencyTable& agencies): agencies(agencies) {}
     void run();
+    
 };

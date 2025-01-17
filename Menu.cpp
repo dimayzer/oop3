@@ -181,25 +181,40 @@ std::vector<Agency*> Menu::get_all_agencies() const {
 void Menu::display_agencies_by_region() const {
     auto all_agencies = get_all_agencies();
     RegionIterator iterator(all_agencies);
-    
+
     std::cout << "\nAgencies by region:\n";
     std::cout << "-------------------------\n";
-    while(iterator.hasNext()) {
-        auto [location, count] = iterator.next();
-        std::cout << location << ": " << count << " agencies\n";
-        
-        for(const auto& agency : all_agencies) {
-            if(agency->get_location() == location) {
+
+    std::vector<std::thread> threads;
+    while (iterator.hasNext()) {
+        auto pair = iterator.next();
+        std::string location = pair.first;
+        int count = pair.second;
+
+        threads.emplace_back([this, location, count, &all_agencies]() {
+            std::vector<Agency*> agencies_in_region;
+            for (const auto& agency : all_agencies) {
+                if (agency->get_location() == location) {
+                    agencies_in_region.push_back(agency);
+                }
+            }
+
+            std::lock_guard<std::mutex> lock(output_mutex);
+            std::cout << location << ": " << count << " agencies\n";
+            for (const auto& agency : agencies_in_region) {
                 std::cout << "\n  " << agency->get_name() << " ("
-                         << agency->get_type() << ")\n";
+                          << agency->get_type() << ")\n";
                 std::cout << "  Profile: " << agency->get_profile() << "\n";
                 std::cout << "  License: " << agency->get_license_number() << "\n";
             }
-        }
-        std::cout << "-------------------------\n";
+            std::cout << "-------------------------\n";
+        });
+    }
+
+    for (auto& thread : threads) {
+        thread.join();
     }
 }
-
 void Menu::display_all_agencies() const {
     const auto& table = agencies.get_table();
     bool found = false;
